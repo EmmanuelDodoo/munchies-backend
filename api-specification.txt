@@ -1,0 +1,179 @@
+GET /api/
+    The default home endpoint of the api
+    Returns a json with brief dinning hall data
+
+    No request body needed
+
+    Response
+        <HTTP Status code 200>
+        {
+            "dining halls": [
+                {
+                   "id": <int>,
+                   "name": <string>,
+                   "rating": <number in range [0,5] inclusive in steps of 0.5>,
+                   "image": <url to image>,
+                   "review_number": <int>
+                }
+            ]
+        }
+
+GET /api/hall/{id}/
+    Returns data about a specific dining hall
+
+    No request body needed
+
+    Response
+        <HTTP Status code 200>
+        {
+            "id": <int>,
+            "name" : <string>,
+            "rating": <number in range [0,5] inclusive in steps of 0.5>,
+            "image": <url to image>,
+            "reviews": [
+                {
+                    <reviews data>
+                }
+            ]
+        }
+
+GET /api/hall/{hall id}/reviews/{review id}/
+    Returns data about a specific review on a dining hall
+
+    No request body needed
+
+    Response
+        <HTTP Status code 200>
+        {
+            "id": <int>
+            "user_name" : <string>
+            "user_id": <int>
+            "created_at": <unix time>
+            "contents": <string>
+            "with_image": <boolean>
+            "image_url": <url to image> | <null>
+            "is_sub_review": <boolean>
+            "parent_id": <int> | <null>
+            "replies": [
+                {
+                    <review data>
+                }
+            ]
+        }
+
+    On fail
+        <HTTP Status code 404>
+
+POST /api/hall/{hall id}/reviews/
+    Create a review on a dining hall
+    Authentication required!
+
+    Request header 
+        Authentication: Bearer <valid token>
+    
+    Request body
+        {
+            "contents" : <string>
+            "with_image" : <boolean>
+            "image_url" : <url to image> | <null>
+            "is_sub_review": <boolean>
+            "parent_id": <int> | <null>
+        }
+    
+    Response 
+        <HTTP Status code 201>
+        {
+            "id": <int>
+            "user_name" : <string>
+            "user_id": <int>
+            "contents": <string>
+            "created_at": <unix time>
+            "with_image": <boolean>
+            "image_url": <url to image> | <null>
+            "is_sub_review": <boolean>
+            "parent_id": <int> | <null>
+            "replies": []
+        }
+
+DELETE /api/hall/{hall id}/reviews/{ review id}/
+    Delete a specific review on a dining hall. Reviews can only be
+    deleted by their creator. Deleting is deletes sub-reviews
+    
+    Requires Authentication
+
+    Request header
+        Authentication: Bearer <valid token>
+    
+    Response 
+        <HTTP Status code 200>
+        {
+            "id": <int>
+            "user_name" : <string>
+            "user_id": <int>
+            "contents": <string>
+            "with_image": <boolean>
+            "created_at": <unix time>
+            "image_url": <url to image> | <null>
+            "is_sub_review": <boolean>
+            "parent_id": <int> | <null>
+            "replies": [
+                {
+                    <review data>
+                }
+            ]
+        }
+
+UPDATE /api/hall/{hall id}/reviews/
+    Modify the contents of a review
+
+    Requires Authentication
+
+    Request header
+        Authentication: Bearer <valid token>
+    
+    Request body
+        {
+            "contents": <string>
+            "with_image": <boolean>
+            "image_url" : <url to image> | <null>
+        }
+    
+    Response
+        <HTTP Status code 200>
+        {
+            "id": <int>
+            "user_name" : <string>
+            "user_id": <int>
+            "created_at": <unix time>
+            "contents": <string>
+            "with_image": <boolean>
+            "image_url": <url to image> | <null>
+            "is_sub_review": <boolean>
+            "parent_id": <int> | <null>
+            "replies": [
+                {
+                    <review data>
+                }
+            ]
+        }
+
+POST /api/hall/{hall id}/rate/
+    Rate a dining hall out of 5. Ratings in range
+    [0,5] inclusive with steps of 0.5 allowed
+
+    Requires Authentication
+
+    Request header
+        Authentication: Bearer <valid token>
+    
+    Request body
+        {
+            "ratings": <number in range [0,5] inclusive>
+        }
+    
+    Response
+        <HTTP Status code 200>
+        {
+            "id": <int id of the hall>
+            "rating": <int updated rating>
+        }
