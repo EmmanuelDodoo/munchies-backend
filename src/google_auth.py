@@ -12,11 +12,12 @@ GOOGLE_CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 # Provides information on various endpoints
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
-#OAuth 2 client setup
+# OAuth 2 client setup
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
-#The provider configuration
+# The provider configuration
 google_provider_config: dict = requests.get(GOOGLE_DISCOVERY_URL).json()
+
 
 def login_redirect_uri(redirect_uri: str):
     """
@@ -26,16 +27,18 @@ def login_redirect_uri(redirect_uri: str):
     """
 
     # Get the url from the provider config
-    authorization_endpoint: str = google_provider_config.get("authorization_endpoint")
+    authorization_endpoint: str = google_provider_config.get(
+        "authorization_endpoint")
 
-    # Build the uri 
+    # Build the uri
     uri = client.prepare_request_uri(
         uri=authorization_endpoint,
         redirect_uri=redirect_uri,
-        scope=["openid", "email", "profile"], # The information access needed
+        scope=["openid", "email", "profile"],  # The information access needed
     )
 
     return uri
+
 
 def send_tokens(code, request_url, redirect_url):
     """
@@ -66,24 +69,25 @@ def send_tokens(code, request_url, redirect_url):
 
     client.parse_request_body_response(json.dumps(token_response.json()))
 
+
 def get_user_data():
     """
         Send a request to Google for the profile information of a user
-        
+
         Returns a dictionary with the fields, unique_id, email, name.
     """
 
     userinfo_endpoint = google_provider_config.get("userinfo_endpoint")
 
     uri, headers, body = client.add_token(userinfo_endpoint)
-    # Send get request 
+    # Send get request
     userinfo_response = requests.get(uri, headers=headers, data=body)
     userinfo_response_json = userinfo_response.json()
 
     output = {
         "unique_id": userinfo_response_json.get("sub", ""),
         "email": userinfo_response_json.get("email", ""),
-        "name" : userinfo_response_json.get("given_name", "")
+        "name": userinfo_response_json.get("name", "")
     }
 
     return output
