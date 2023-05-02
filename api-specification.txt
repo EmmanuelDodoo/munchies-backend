@@ -46,19 +46,13 @@ GET /api/hall/{hall id}/reviews/{review id}/
         <HTTP Status code 200>
         {
             "id": <int>
-            "user_name" : <string>
-            "user_id": <int>
-            "created_at": <unix time>
+            "hall_id": <int>
+            "username" : <string>
+            "userid": <int>
+            "date": <unix time>
             "contents": <string>
             "with_image": <boolean>
-            "image_url": <url to image> | <null>
-            "is_sub_review": <boolean>
-            "parent_id": <int> | <null>
-            "replies": [
-                {
-                    <review data>
-                }
-            ]
+            "image_url": <url to image> | <"">
         }
 
     On fail
@@ -73,31 +67,28 @@ POST /api/hall/{hall id}/reviews/
     
     Request body
         {
+            "userid": <valid user id>
             "contents" : <string>
             "with_image" : <boolean>
             "image_url" : <url to image> | <null>
-            "is_sub_review": <boolean>
-            "parent_id": <int> | <null>
         }
     
     Response 
         <HTTP Status code 201>
         {
             "id": <int>
-            "user_name" : <string>
-            "user_id": <int>
+            "hall_id": <int>
+            "username" : <string>
+            "userid": <int>
             "contents": <string>
-            "created_at": <unix time>
+            "date": <unix time>
             "with_image": <boolean>
             "image_url": <url to image> | <null>
-            "is_sub_review": <boolean>
-            "parent_id": <int> | <null>
-            "replies": []
         }
 
 DELETE /api/hall/{hall id}/reviews/{ review id}/
     Delete a specific review on a dining hall. Reviews can only be
-    deleted by their creator. Deleting is deletes sub-reviews
+    deleted by their creator.
     
     Requires Authentication
 
@@ -108,22 +99,16 @@ DELETE /api/hall/{hall id}/reviews/{ review id}/
         <HTTP Status code 200>
         {
             "id": <int>
-            "user_name" : <string>
-            "user_id": <int>
+            "hall_id": <int>
+            "username" : <string>
+            "userid": <int>
             "contents": <string>
             "with_image": <boolean>
-            "created_at": <unix time>
+            "date": <unix time>
             "image_url": <url to image> | <null>
-            "is_sub_review": <boolean>
-            "parent_id": <int> | <null>
-            "replies": [
-                {
-                    <review data>
-                }
-            ]
         }
 
-UPDATE /api/hall/{hall id}/reviews/
+UPDATE /api/hall/{hall id}/reviews/{review id}/
     Modify the contents of a review
 
     Requires Authentication
@@ -134,27 +119,19 @@ UPDATE /api/hall/{hall id}/reviews/
     Request body
         {
             "contents": <string>
-            "with_image": <boolean>
-            "image_url" : <url to image> | <null>
         }
     
     Response
         <HTTP Status code 200>
         {
             "id": <int>
-            "user_name" : <string>
-            "user_id": <int>
-            "created_at": <unix time>
+            "hall_id": <int>
+            "username" : <string>
+            "userid": <int>
+            "date": <unix time>
             "contents": <string>
             "with_image": <boolean>
             "image_url": <url to image> | <null>
-            "is_sub_review": <boolean>
-            "parent_id": <int> | <null>
-            "replies": [
-                {
-                    <review data>
-                }
-            ]
         }
 
 POST /api/hall/{hall id}/rate/
@@ -168,12 +145,39 @@ POST /api/hall/{hall id}/rate/
     
     Request body
         {
-            "ratings": <number in range [0,5] inclusive>
+            "userid" <int>
+            "rating": <number in range [0,5] inclusive>
         }
     
     Response
-        <HTTP Status code 200>
+        <HTTP Status code 201>
         {
-            "id": <int id of the hall>
-            "rating": <int updated rating>
+            "id": <int>,
+            "name": <string>,
+            "rating": <number in range [0,5] inclusive in steps of 0.5>,
+            "image": <url to image>,
+            "review_number": <int>
         }
+
+POST /api/login/
+    Attempts to login a user.
+    If user is new, redirects to Google google Authentication.
+    Requires a Cornell email
+
+    Request body
+        {
+            "user_email": <valid cornell email>
+        }
+    
+    Response
+        <HTTP Status code 201>
+        {
+            "userid": <int>
+            "username": <string>
+            "user_email": <email>
+            "tokenid": <int>
+            "session_token": <valid session token>
+            "created_at": <unix time>
+            "expires_at": <unix time>
+        }
+
