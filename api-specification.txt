@@ -143,6 +143,7 @@ DELETE /api/hall/{hall id}/reviews/{ review id}/
         <HTTP Status code 404>
         "error": 
             "Review not found"
+            "Dining hall not found"
 
         <HTTP Status code 400>
         "error": 
@@ -155,7 +156,7 @@ DELETE /api/hall/{hall id}/reviews/{ review id}/
             "Unauthorized access"
 
 
-UPDATE /api/hall/{hall id}/reviews/{review id}/
+PATCH /api/hall/{hall id}/reviews/{review id}/
     Modify the contents of a review
 
     Requires Authentication
@@ -185,6 +186,7 @@ UPDATE /api/hall/{hall id}/reviews/{review id}/
         <HTTP Status code 404>
         "error": 
             "Review not found"
+            "Dining hall not found"
 
         <HTTP Status code 400>
         "error":
@@ -244,12 +246,11 @@ POST /api/hall/{hall id}/rate/
 
 POST /api/login/
     Attempts to login a user.
-    Requires a Cornell email.
     Requires password to be salted and hashed
 
     Request body
         {
-            "email": <valid cornell email>
+            "email": <email>
             "password": <salted and hashed password>
         }
     
@@ -279,21 +280,17 @@ POST /api/login/
         "error":
             "Incorrect password"
 
-        <HTTP Status code 403>
-        "error":
-            "Only Cornell accounts allowed"
-
 
 POST /api/signup/
     Create a new user
     Requires cornell email
     Requires no existing user with same email
-    Requires salted and hashed password
+    Requires password is plaintext
 
     Request body 
         {
             "email": <Valid cornell email>
-            "password": <salted and hashed password>
+            "password": <plaintext password>
             "username": <string>
         }
 
@@ -319,7 +316,6 @@ POST /api/signup/
         <HTTP Status code 403>
         "error":
             "Only Cornell accounts allowed"
-
 
 
 POST /api/experimental/login/

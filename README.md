@@ -1,3 +1,3 @@
 Backend for the Munchies, Dining hall review app
 
-Developed by Andre Foster and Emmanuel Dodoo
+Developed by Emmanuel Dodoo and Andre Foster

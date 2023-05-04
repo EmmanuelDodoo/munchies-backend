@@ -1,4 +1,4 @@
-from db import db, User, DiningHall, Review, Token
+from db import db, GUser, DiningHall, Review, Token, User
 import google_auth
 from flask import Flask, request, redirect
 import json
@@ -28,14 +28,14 @@ def prepopulate_halls():
         db.session.commit()
 
 
-def prepopulate_users():
-    """ Adds dummy users to the database"""
+def prepopulate_gusers():
+    """ Adds dummy GUsers to the database"""
     names = ["Janett", "Andre", "Emmanuel", "Joyce"]
     emails = ["jn23@cornell.edu", "af6@cornell.edu",
               "end25@cornell.edu", "jye12@cornell.edu"]
 
     for n, e in zip(names, emails):
-        user = User(n, e)
+        user = GUser(n, e)
         db.session.add(user)
         db.session.commit()
 
@@ -44,7 +44,7 @@ def prepopulate():
     """ Prepopulates all tables with dummy data mainly for testing database"""
 
     prepopulate_halls()
-    prepopulate_users()
+    prepopulate_gusers()
 # ==============================================================================
 
 
@@ -129,7 +129,7 @@ def get_specific_hall(hid: int):
 
 
 @app.route("/api/experimental/login/", methods=["POST"])
-def login():
+def google_login():
     """ Attempts to login a user. If the user has not
         been created, redirects to google for authentication.
 
@@ -148,7 +148,7 @@ def login():
         return failure_response("Only Cornell accounts allowed", 403)
 
     # Check if the user already exists
-    user: User = User.query.filter_by(email=req_body.get("email")).first()
+    user: GUser = GUser.query.filter_by(email=req_body.get("email")).first()
 
     # If this is a new user, redirect for authentication.
     if not user:
@@ -174,7 +174,7 @@ def login():
 
 
 @app.route("/api/login/experimental/callback/")
-def login_callback():
+def google_login_callback():
     """ Handle callback after logging in with google."""
 
     code = request.args.get("code")
@@ -308,6 +308,10 @@ def get_specific_review(hid: int, rid: int):
 def update_review(hid: int, rid: int):
     """ Update the contents of a review"""
 
+    hall: DiningHall = DiningHall.query.filter_by(id=hid).first()
+    if not hall:
+        return failure_response("Dining hall not found")
+
     review: Review = Review.query.filter_by(id=rid).first()
 
     if not review:
@@ -344,6 +348,10 @@ def update_review(hid: int, rid: int):
 def delete_review(hid: int, rid: int):
     """ Delete a specifc review from the database"""
 
+    hall: DiningHall = DiningHall.query.filter_by(id=hid).first()
+    if not hall:
+        return failure_response("Dining hall not found")
+
     review: Review = Review.query.filter_by(id=rid).first()
 
     if not review:
@@ -368,8 +376,96 @@ def delete_review(hid: int, rid: int):
     return success_response(review.serialize())
 
 
+@app.route("/api/login/", methods=["POST"])
+def login():
+    """ Logs in an existing user"""
+
+    if not request.data:
+        return failure_response("Missing request body", 400)
+
+    req_body: dict = json.loads(request.data)
+
+    if not req_body.get("email") or not isinstance(req_body.get("email"), str):
+        return failure_response("Bad request body", 400)
+
+    if not req_body.get("password") or not isinstance(req_body.get("password"), str):
+        return failure_response("Bad request body", 400)
+
+    user: User = User.query.filter_by(email=req_body.get("email")).first()
+
+    if not user:
+        return failure_response("User not found")
+
+    if not user.verify(req_body.get("password")):
+        return failure_response("Incorrect password", 401)
+
+    token = Token(user.id)
+
+    db.session.add(token)
+    db.session.commit()
+
+    output = {
+        "userid": user.id,
+        "username": user.name,
+        "email": user.email,
+        "tokenid": token.id,
+        "session_token": token.value,
+        "created_at": token.created_at,
+        "expires_at": token.expires_at
+    }
+
+    return success_response(output, 201)
+
+
+@app.route("/api/signup/", methods=["POST"])
+def signup():
+    """ Create a new user from signup"""
+
+    if not request.data:
+        return failure_response("Missing request body", 400)
+
+    req_body: dict = json.loads(request.data)
+
+    if not req_body.get("email") or not isinstance(req_body.get("email"), str):
+        return failure_response("Bad request body", 400)
+    if not req_body.get("password") or not isinstance(req_body.get("password"), str):
+        return failure_response("Bad request body", 400)
+    if not req_body.get("username") or not isinstance(req_body.get("username"), str):
+        return failure_response("Bad request body", 400)
+
+    if not verify_email(req_body.get("email")):
+        return failure_response("Only Cornell accounts allowed", 403)
+
+    existing_user: User = User.query.filter_by(
+        email=req_body.get("email")).first()
+    if existing_user:
+        return failure_response("User already exists", 400)
+
+    new_user: User = User(req_body.get("username"), req_body.get(
+        "email"), req_body.get("password"))
+    db.session.add(new_user)
+    db.session.commit()
+
+    token = Token(new_user.id)
+    db.session.add(token)
+    db.session.commit()
+
+    output = {
+        "userid": new_user.id,
+        "username": new_user.name,
+        "email": new_user.email,
+        "tokenid": token.id,
+        "session_token": token.value,
+        "created_at": token.created_at,
+        "expires_at": token.expires_at
+    }
+
+    return success_response(output, 201)
+
+
 # ===================================================================================
 if __name__ == "__main__":
     # Use this to request a proper certificate:
     # https://blog.miguelgrinberg.com/post/running-your-flask-application-over-https
-    app.run(host="0.0.0.0", port=8000, debug=True, ssl_context="adhoc")
+    # app.run(host="0.0.0.0", port=8000, debug=True, ssl_context="adhoc") this is for running on https
+    app.run(host="0.0.0.0", port=8000, debug=True)  # for running on http

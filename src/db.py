@@ -76,9 +76,91 @@ class DiningHall(db.Model):
 
 
 class User(db.Model):
-    """ Table representing registered users"""
+    """ Table representing users not registered with google authentication"""
 
     __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String, nullable=False)
+    email = db.Column(db.String, nullable=False)
+    _passoword = db.Column(db.String, nullable=False)
+    rated = db.Column(db.String, nullable=False)
+
+    @hybrid_property
+    def previous_rating(self):
+        return json.loads(self.rated)
+
+    @previous_rating.setter
+    def previous_rating(self, value):
+        self.rated = json.dumps(value)
+
+    @hybrid_property
+    def _password(self):
+        raise Exception("Cannot directly access password")
+
+    def __init__(self, name: str, email: str, password: str):
+        """ Create a new User entry"""
+
+        self.name = name
+        self.email = email
+        self.previous_rating = {}
+        # Salt and hashes password before setting it
+        salt: str = os.getenv("SALT")
+        salted = salt+password+salt
+        hash = hashlib.sha256()
+        hash.update(salted.encode("utf-8"))
+        self._passoword = hash.hexdigest()
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "email": self.email
+        }
+
+    def rate_hall(self, hid: int, new_rating: int | float):
+        """ Rate a hall given an id. Cancels any previous rating
+
+            Requires: `new_rating` is a number in range [0,5] inclusive with steps of 0.5"""
+
+        prev_rating = self.previous_rating.get(str(hid))
+
+        hall: DiningHall = DiningHall.query.filter_by(id=hid).first()
+
+        # No previous
+        if prev_rating == None:
+            self.previous_rating = (self.previous_rating | {
+                                    str(hid): new_rating})
+            hall.add_rating(new_rating)
+            db.session.commit()
+            return
+
+        # Previous rating
+        hall.rating_sum += new_rating - prev_rating
+        self.previous_rating = (self.previous_rating | {str(hid): new_rating})
+        db.session.commit()
+        return
+
+    def hash_and_verify(self, password: str):
+        """ Checks if this `password` is the password of this user. 
+
+            Requires: `password` is not hashed
+        """
+
+        salt: str = os.getenv("SALT")
+        salted: str = salt+password+salt
+        hash = hashlib.sha256(salted.encode("utf-8"))
+
+        return self._passoword == (hash.hexdigest())
+
+    def verify(self, password: str):
+        """ Checks if this `password` is the password of this user"""
+        return self._passoword == password
+
+
+class GUser(db.Model):
+    """ Table representing users registered using google authentication"""
+
+    __tablename__ = "gusers"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String, nullable=False)
     email = db.Column(db.String, nullable=False)
@@ -93,7 +175,7 @@ class User(db.Model):
         self.rated = json.dumps(value)
 
     def __init__(self, name: str, email: str):
-        """ Create a new User entry"""
+        """ Create a new GUser entry"""
 
         self.name = name
         self.email = email
