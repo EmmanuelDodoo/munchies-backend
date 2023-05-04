@@ -1,10 +1,11 @@
+GET /
 GET /api/
     The default home endpoint of the api
     Returns a json with brief dinning hall data
 
     No request body needed
 
-    Response
+    Success Response
         <HTTP Status code 200>
         {
             "dining halls": [
@@ -23,7 +24,7 @@ GET /api/hall/{id}/
 
     No request body needed
 
-    Response
+    Success Response
         <HTTP Status code 200>
         {
             "id": <int>,
@@ -36,13 +37,20 @@ GET /api/hall/{id}/
                 }
             ]
         }
+    
+    Failure Response
+        <HTTP Status code 404>
+        {
+            "error" : "Hall not found"
+        }
+
 
 GET /api/hall/{hall id}/reviews/{review id}/
     Returns data about a specific review on a dining hall
 
     No request body needed
 
-    Response
+    Success Response
         <HTTP Status code 200>
         {
             "id": <int>
@@ -55,8 +63,14 @@ GET /api/hall/{hall id}/reviews/{review id}/
             "image_url": <url to image> | <"">
         }
 
-    On fail
+    Failure Response
         <HTTP Status code 404>
+            "error": "Dining hall not found"
+        
+
+        <HTTP status code 404>
+            "error": "Review not found"
+
 
 POST /api/hall/{hall id}/reviews/
     Create a review on a dining hall
@@ -73,7 +87,7 @@ POST /api/hall/{hall id}/reviews/
             "image_url" : <url to image> | <null>
         }
     
-    Response 
+    Success Response 
         <HTTP Status code 201>
         {
             "id": <int>
@@ -86,6 +100,23 @@ POST /api/hall/{hall id}/reviews/
             "image_url": <url to image> | <null>
         }
 
+    Failure Responses
+        <HTTP Status code 404>
+        "error": 
+            "Hall not found"
+            "User not found"
+
+        <HTTP Status code 400>
+        "error": 
+            "Bad request body"
+            "Missing Authentication"
+            "Missing session token"
+        
+        <HTTP Status code 401>
+        "error":
+            "Invalid session token"
+
+
 DELETE /api/hall/{hall id}/reviews/{ review id}/
     Delete a specific review on a dining hall. Reviews can only be
     deleted by their creator.
@@ -95,7 +126,7 @@ DELETE /api/hall/{hall id}/reviews/{ review id}/
     Request header
         Authentication: Bearer <valid token>
     
-    Response 
+    Success Response 
         <HTTP Status code 200>
         {
             "id": <int>
@@ -107,6 +138,22 @@ DELETE /api/hall/{hall id}/reviews/{ review id}/
             "date": <unix time>
             "image_url": <url to image> | <null>
         }
+    
+    Failure Responses
+        <HTTP Status code 404>
+        "error": 
+            "Review not found"
+
+        <HTTP Status code 400>
+        "error": 
+            "Missing Authorization"
+            "Missing session token"
+        
+        <HTTP Status code 401>
+        "error":
+            "Invalid session token"
+            "Unauthorized access"
+
 
 UPDATE /api/hall/{hall id}/reviews/{review id}/
     Modify the contents of a review
@@ -121,7 +168,7 @@ UPDATE /api/hall/{hall id}/reviews/{review id}/
             "contents": <string>
         }
     
-    Response
+    Success Response
         <HTTP Status code 200>
         {
             "id": <int>
@@ -133,6 +180,24 @@ UPDATE /api/hall/{hall id}/reviews/{review id}/
             "with_image": <boolean>
             "image_url": <url to image> | <null>
         }
+
+    Failure Responses
+        <HTTP Status code 404>
+        "error": 
+            "Review not found"
+
+        <HTTP Status code 400>
+        "error":
+            "Missing request body"
+            "Bad request body"
+            "Missing Authorization"
+            "Missing session token"
+        
+        <HTTP Status code 401>
+        "error":
+            "Invalid session token"
+            "Unauthorized access"
+
 
 POST /api/hall/{hall id}/rate/
     Rate a dining hall out of 5. Ratings in range
@@ -149,7 +214,7 @@ POST /api/hall/{hall id}/rate/
             "rating": <number in range [0,5] inclusive>
         }
     
-    Response
+    Success Response
         <HTTP Status code 201>
         {
             "id": <int>,
@@ -159,25 +224,139 @@ POST /api/hall/{hall id}/rate/
             "review_number": <int>
         }
 
+    Failure Response
+        <HTTP Status code 404>
+        "error":
+            "Dining hall not found"
+            "User not found"
+
+        <HTTP Status code 400>
+        "error":
+            "Missing request body"
+            "Bad request body"
+            "Missing Authorization"
+            "Missing session token"
+
+        <HTTP Status code 401>
+        "error":
+            "Invalid session token"
+
+
 POST /api/login/
     Attempts to login a user.
-    If user is new, redirects to Google google Authentication.
-    Requires a Cornell email
+    Requires a Cornell email.
+    Requires password to be salted and hashed
 
     Request body
         {
-            "user_email": <valid cornell email>
+            "email": <valid cornell email>
+            "password": <salted and hashed password>
         }
     
-    Response
+    Success Response
         <HTTP Status code 201>
         {
             "userid": <int>
             "username": <string>
-            "user_email": <email>
+            "email": <email>
+            "tokenid": <int>
+            "session_token": <valid session token>
+            "created_at": <unix time>
+            "expires_at": <unix time>
+        }
+    
+    Failure Response
+        <HTTP Status code 404>
+        "error":
+            "User not found"
+        
+        <HTTP Status code 400>
+        "error":
+            "Missing request body"
+            "Bad request body"
+        
+        <HTTP Status code 401>
+        "error":
+            "Incorrect password"
+
+        <HTTP Status code 403>
+        "error":
+            "Only Cornell accounts allowed"
+
+
+POST /api/signup/
+    Create a new user
+    Requires cornell email
+    Requires no existing user with same email
+    Requires salted and hashed password
+
+    Request body 
+        {
+            "email": <Valid cornell email>
+            "password": <salted and hashed password>
+            "username": <string>
+        }
+
+    Success Response
+        <HTTP Status code 201>
+        {
+            "userid": <int>
+            "username": <string>
+            "email": <email>
             "tokenid": <int>
             "session_token": <valid session token>
             "created_at": <unix time>
             "expires_at": <unix time>
         }
 
+    Failure Response
+        <HTTP Status code 400>
+        "error":
+            "User already exists"
+            "Missing request body"
+            "Bad request body"
+        
+        <HTTP Status code 403>
+        "error":
+            "Only Cornell accounts allowed"
+
+
+
+POST /api/experimental/login/
+    Attempts to login a user using Google Authentication.
+    Requires a Cornell email
+
+    Request body
+        {
+            "email": <valid cornell email>
+        }
+    
+    Success Response
+        <HTTP Status code 201>
+        {
+            "userid": <int>
+            "username": <string>
+            "email": <email>
+            "tokenid": <int>
+            "session_token": <valid session token>
+            "created_at": <unix time>
+            "expires_at": <unix time>
+        }
+
+    Failure Response
+        <HTTP Status code 404>
+        "error":
+            "User not found"
+        
+        <HTTP Status code 400>
+        "error":
+            "Missing request body"
+            "Bad request body"
+        
+        <HTTP Status code 401>
+        "error":
+            "Incorrect password"
+
+        <HTTP Status code 403>
+        "error":
+            "Only Cornell accounts allowed"

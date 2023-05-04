@@ -85,7 +85,7 @@ def extract_token(request):
     token = header.replace("Bearer", "").strip()
 
     if not token:
-        return False, failure_response("Missing token", 400)
+        return False, failure_response("Missing session token", 400)
 
     return True, token
 
@@ -123,12 +123,12 @@ def get_specific_hall(hid: int):
     hall: DiningHall = DiningHall.query.filter_by(id=hid).first()
 
     if not hall:
-        return failure_response("Hall not round")
+        return failure_response("Hall not found")
 
     return success_response(hall.full_serialize())
 
 
-@app.route("/api/login/", methods=["POST"])
+@app.route("/api/experimental/login/", methods=["POST"])
 def login():
     """ Attempts to login a user. If the user has not
         been created, redirects to google for authentication.
@@ -141,18 +141,18 @@ def login():
 
     req_body: dict = json.loads(request.data)
 
-    if not req_body.get("user_email") or not isinstance(req_body["user_email"], str):
+    if not req_body.get("email") or not isinstance(req_body["email"], str):
         return failure_response("Bad request body", 400)
 
-    if not verify_email(req_body.get("user_email")):
-        return failure_response("Only Cornell accounts Allowed", 403)
+    if not verify_email(req_body.get("email")):
+        return failure_response("Only Cornell accounts allowed", 403)
 
     # Check if the user already exists
-    user: User = User.query.filter_by(email=req_body.get("user_email")).first()
+    user: User = User.query.filter_by(email=req_body.get("email")).first()
 
     # If this is a new user, redirect for authentication.
     if not user:
-        redirect_to = "https://127.0.0.1:8000/api/login" + "/callback/"
+        redirect_to = "https://127.0.0.1:8000/api/experimental/login" + "/callback/"
         return redirect(google_auth.login_redirect_uri(redirect_to))
 
     # If pre-existing user, get them a token.
@@ -163,7 +163,7 @@ def login():
     output = {
         "userid": user.id,
         "username": user.name,
-        "user_email": user.email,
+        "email": user.email,
         "tokenid": token.id,
         "session_token": token.value,
         "created_at": token.created_at,
@@ -173,12 +173,12 @@ def login():
     return success_response(output, 201)
 
 
-@app.route("/api/login/callback/")
+@app.route("/api/login/experimental/callback/")
 def login_callback():
     """ Handle callback after logging in with google."""
 
     code = request.args.get("code")
-    redirect_to = "https://127.0.0.1:8000/api/login" + "/callback/"
+    redirect_to = "https://127.0.0.1:8000/api/experimental/login" + "/callback/"
 
     google_auth.send_tokens(
         code=code, request_url=request.url, redirect_url=redirect_to)
@@ -197,7 +197,7 @@ def rate_hall(hall_id: int):
     hall: DiningHall = DiningHall.query.filter_by(id=hall_id).first()
 
     if not hall:
-        return failure_response("No such dining hall")
+        return failure_response("Dining hall not found")
 
     if not request.data:
         return failure_response("Missing request body", 400)
@@ -212,7 +212,7 @@ def rate_hall(hall_id: int):
 
     user: User = User.query.filter_by(id=req_body.get("userid")).first()
     if not user:
-        return failure_response("No such user", 404)
+        return failure_response("User not found", 404)
 
     success, message = extract_token(request)
 
@@ -221,7 +221,7 @@ def rate_hall(hall_id: int):
 
     token: Token = Token.query.filter_by(value=message).first()
     if not token:
-        return failure_response("Invalid token", 401)
+        return failure_response("Invalid session token", 401)
 
     if not token.verify(user.id):
         return failure_response("Invalid session token", 401)
@@ -242,7 +242,7 @@ def create_review(hid: int):
     hall: DiningHall = DiningHall.query.filter_by(id=hid).first()
 
     if not hall:
-        return failure_response("Dining hall not found")
+        return failure_response("Hall not found")
 
     if not request.data:
         return failure_response("Missing request body", 400)
@@ -250,18 +250,18 @@ def create_review(hid: int):
     req_body: dict = json.loads(request.data)
 
     if not req_body.get("userid") or not isinstance(req_body.get("userid"), int):
-        return failure_response("Incorrect user id", 400)
+        return failure_response("Bad request body", 400)
     if req_body.get("contents") == None or not isinstance(req_body.get("contents"), str):
-        return failure_response("Incorrect contents", 400)
+        return failure_response("Bad request body", 400)
     if req_body.get("with_image") == None or not isinstance(req_body.get("with_image"), bool):
-        return failure_response("Incorrect with image field", 400)
+        return failure_response("Bad request body", 400)
     if req_body.get("with_image"):
         if not req_body.get("image_url") or not isinstance(req_body.get("image_url"), str):
-            return failure_response("Incorrect image url field", 400)
+            return failure_response("Bad request body", 400)
 
     user: User = User.query.filter_by(id=req_body.get("userid")).first()
     if not user:
-        return failure_response("User does not exist", 404)
+        return failure_response("User not found", 404)
 
     success, message = extract_token(request)
 
@@ -269,8 +269,8 @@ def create_review(hid: int):
         return message
 
     token: Token = Token.query.filter_by(value=message).first()
-    if not token:
-        return failure_response("Invalid token", 401)
+    if not token or not token.verify(user.id):
+        return failure_response("Invalid session token", 401)
 
     review: Review = Review(
         hall_id=hid,
@@ -295,11 +295,11 @@ def get_specific_review(hid: int, rid: int):
 
     hall: DiningHall = DiningHall.query.filter_by(id=hid).first()
     if not hall:
-        return failure_response("Hall does not exist")
+        return failure_response("Dining hall not found")
 
     review: Review = Review.query.filter_by(id=rid).first()
     if not review:
-        return failure_response("Review does not exist")
+        return failure_response("Review not found")
 
     return success_response(review.serialize())
 
@@ -319,7 +319,7 @@ def update_review(hid: int, rid: int):
     req_body: dict = json.loads(request.data)
 
     if req_body.get("contents") == None or not isinstance(req_body.get("contents"), str):
-        return failure_response("Missing review contents", 400)
+        return failure_response("Bad request body", 400)
 
     success, message = extract_token(request)
 
@@ -329,9 +329,9 @@ def update_review(hid: int, rid: int):
     token: Token = Token.query.filter_by(value=message).first()
 
     if not token:
-        return failure_response("Invalid token", 401)
+        return failure_response("Invalid session token", 401)
 
-    if token.userid != review.userid:
+    if not token.verify(review.userid):
         return failure_response("Unauthorized access", 401)
 
     review.update_contents(req_body.get("contents"))
@@ -357,9 +357,9 @@ def delete_review(hid: int, rid: int):
     token: Token = Token.query.filter_by(value=message).first()
 
     if not token:
-        return failure_response("Invalid token", 401)
+        return failure_response("Invalid session token", 401)
 
-    if token.userid != review.userid:
+    if not token.verify(review.userid):
         return failure_response("Unauthorized access", 401)
 
     Review.query.filter(Review.id == rid).delete()
