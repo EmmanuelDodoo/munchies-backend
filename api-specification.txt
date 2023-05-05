@@ -73,7 +73,8 @@ GET /api/hall/{hall id}/reviews/{review id}/
 
 
 POST /api/hall/{hall id}/reviews/
-    Create a review on a dining hall
+    Create a review on a dining hall.
+    Image_data is a base64 encoded image or null
     Authentication required!
 
     Request header 
@@ -84,7 +85,7 @@ POST /api/hall/{hall id}/reviews/
             "userid": <valid user id>
             "contents" : <string>
             "with_image" : <boolean>
-            "image_url" : <url to image> | <null>
+            "image_data" : <base64 encoded image> | <null>
         }
     
     Success Response 

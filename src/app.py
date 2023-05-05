@@ -1,4 +1,4 @@
-from db import db, GUser, DiningHall, Review, Token, User
+from db import db, DiningHall, Review, Token, User, Asset
 import google_auth
 from flask import Flask, request, redirect
 import json
@@ -44,7 +44,6 @@ def prepopulate():
     """ Prepopulates all tables with dummy data mainly for testing database"""
 
     prepopulate_halls()
-    prepopulate_gusers()
 # ==============================================================================
 
 
@@ -256,7 +255,7 @@ def create_review(hid: int):
     if req_body.get("with_image") == None or not isinstance(req_body.get("with_image"), bool):
         return failure_response("Bad request body", 400)
     if req_body.get("with_image"):
-        if not req_body.get("image_url") or not isinstance(req_body.get("image_url"), str):
+        if not req_body.get("image_data") or not isinstance(req_body.get("image_data"), str):
             return failure_response("Bad request body", 400)
 
     user: User = User.query.filter_by(id=req_body.get("userid")).first()
@@ -272,14 +271,28 @@ def create_review(hid: int):
     if not token or not token.verify(user.id):
         return failure_response("Invalid session token", 401)
 
-    review: Review = Review(
-        hall_id=hid,
-        userid=req_body.get("userid"),
-        contents=req_body.get("contents"),
-        date=round(datetime.now().timestamp(), 1),
-        with_image=req_body.get("with_image"),
-        image_url=req_body.get("image_url", "")
-    )
+    if req_body.get("with_image"):
+        img = Asset(req_body.get("image_data"))
+        db.session.add(img)
+        db.session.commit()
+        review: Review = Review(
+            hall_id=hid,
+            userid=req_body.get("userid"),
+            contents=req_body.get("contents"),
+            date=round(datetime.now().timestamp(), 1),
+            with_image=req_body.get("with_image"),
+            image_url=img.serialize().get("url")
+        )
+
+    else:
+        review: Review = Review(
+            hall_id=hid,
+            userid=req_body.get("userid"),
+            contents=req_body.get("contents"),
+            date=round(datetime.now().timestamp(), 1),
+            with_image=req_body.get("with_image"),
+            image_url=""
+        )
 
     db.session.add(review)
     db.session.commit()

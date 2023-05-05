@@ -4,8 +4,21 @@ import os
 import hashlib
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 import json
+import re
+import random
+import base64
+from PIL import Image
+import string
+from io import BytesIO
+import boto3
+from mimetypes import guess_extension, guess_type
 
 db = SQLAlchemy()
+
+EXTENSIONS = ["jpg", "png", "gif", "jpeg"]
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+S3_BASE_URL = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com"
+BASE_DIR = os.getcwd()
 
 
 class DiningHall(db.Model):
@@ -319,4 +332,104 @@ class Token(db.Model):
             "token": self.value,
             "created_at": self.created_at,
             "expires_at": self.expires_at
+        }
+
+
+class Asset(db.Model):
+    """ Handle image uploads"""
+
+    __tablename__ = 'images'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    base_url = db.Column(db.String, nullable=False)
+    salt = db.Column(db.String, nullable=False)
+    extension = db.Column(db.String, nullable=False)
+    width = db.Column(db.Integer, nullable=False)
+    height = db.Column(db.Integer, nullable=False)
+
+    def create_salt(cls):
+        """ Create a randomised 16 length string"""
+        return "".join(
+            random.SystemRandom().choice(
+                string.ascii_uppercase + string.digits
+            )
+            for _ in range(16)
+        )
+
+    def get_extension(self, data):
+        """Get the extension of an encoded image.
+
+            Raises an exception if extension is not supported
+        """
+        extension = guess_extension(guess_type(data)[0])[1:]
+        # filter unsupported image types
+        if extension not in EXTENSIONS:
+            raise Exception(f"{extension} not supported!")
+
+        return extension
+
+    def process(cls, data):
+        """ Attempt to process the image data into an PIL.Image object
+
+            Throws an exception if unsuccessful
+        """
+
+        try:
+            temp_str = re.sub("^data:image/.+;base64,", "", data)
+
+            # Decode
+            decoded = base64.b64decode(temp_str)
+
+            # Generate the image
+            img = Image.open(BytesIO(decoded))
+
+            return img
+
+        except Exception as e:
+            print("\n******************************************************************")
+            print(
+                f"Exception during image data processing. Exception is as follows;\n{e}")
+            print("******************************************************************\n")
+
+    def __init__(self, image_data):
+        self.base_url = S3_BASE_URL
+        self.salt = self.create_salt()
+        self.extension = self.get_extension(image_data)
+        img = self.process(image_data)
+        self.width = img.width
+        self.height = img.height
+
+        self.upload(img)
+
+    def upload(self, img):
+        """ Attempt to upload image to Amazon S3 bucket"""
+        img_filename = f"{self.salt}.{self.extension}"
+
+        try:
+            # temporary save
+            temp_location = f"{BASE_DIR}/{img_filename}"
+            img.save(temp_location)
+
+            # upload to aws
+            aws_key = os.getenv("AWS_ACCESS_KEY_ID")
+            s3_client = boto3.client("s3")
+            s3_client.upload_file(temp_location, S3_BUCKET_NAME, img_filename)
+
+            # make image public
+            s3_resource = boto3.resource("s3")
+            object_acl = s3_resource.ObjectAcl(S3_BUCKET_NAME, img_filename)
+            object_acl.put(ACL='public-read')
+
+            # delete temporary save
+            os.remove(temp_location)
+
+        except Exception as e:
+            print("\n******************************************************************")
+            print(
+                f'Exception during image upload. Exception as follows; \n {e}')
+            print("******************************************************************\n")
+
+    def serialize(self):
+        """Return a python dictionary view of this image"""
+        return {
+            "url": f'{self.base_url}/{self.salt}.{self.extension}'
         }
