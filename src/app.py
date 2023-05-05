@@ -4,6 +4,7 @@ from flask import Flask, request, redirect
 import json
 import re
 from datetime import datetime
+import os
 
 app = Flask(__name__)
 db_filename = "munchies.db"
@@ -19,25 +20,44 @@ db.init_app(app)
 
 def prepopulate_halls():
     """ Adds dining halls to the database"""
+    S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+    base_url = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com/dininghalls/"
 
-    names = ["Morrison", "Okenshields", "Carl Becker", "North Star"]
+    halls: list[tuple[str, str, str]] = [("Morrison Dining", "morrison.jpg", 4.0),
+                                         ("North Star Dining",
+                                          "northstar.jpg", 2.5),
+                                         ("Risley Dining", "risley.jpg", 4.5),
+                                         ("Okenshields", "okenshields.webp", 3.5),
+                                         ("Becker House Dining",
+                                          "becker.jpg", 3.5),
+                                         ("Cook House Dining", "cook.webp", 3.5),
+                                         ("Jansens Dining at Hans Bethe",
+                                          "bethes.jpg", 3.0),
+                                         ("Keeton House Dining",
+                                          "keeton.jpg", 3.5),
+                                         ("Rose House Dining", "rose.jpg", 4.0),
+                                         ("104West", "104west.png", 3.5),
+                                         ("Bear Necessities", "bear.jpg", 5),
+                                         ("Amit Bhatia Libe Cafe",
+                                          "amit-bhatia-libe.jpg", 4.0),
+                                         ("Big Red Barn", "brbarn.jpg", 4.0),
+                                         ("Bus Stop Bagels",
+                                          "bus-stop-bagels", 3.5),
+                                         ("Cafe Jennie", "cafe-jennie.webp", 4.0),
+                                         ("Franny's Food Truck",
+                                          "franny.webp", 4.0),
+                                         ("Goldie's", "goldies.jpg", 3.5),
+                                         ("Mattin's Cafe", "mattins.jpg", 4.0),
+                                         ("Rusty's", "rustys.jpg", 3.0),
+                                         ("Trillium", "trillium.jpg", 4.0),
+                                         ("Temple of Zeus", "zeus.jpg", 4.0)
+                                         ]
 
-    for n in names:
-        hall = DiningHall(n, "")
-        db.session.add(hall)
-        db.session.commit()
+    for hall in halls:
+        dHall = DiningHall(hall[0], f"{base_url}{hall[1]}")
+        db.session.add(dHall)
 
-
-def prepopulate_gusers():
-    """ Adds dummy GUsers to the database"""
-    names = ["Janett", "Andre", "Emmanuel", "Joyce"]
-    emails = ["jn23@cornell.edu", "af6@cornell.edu",
-              "end25@cornell.edu", "jye12@cornell.edu"]
-
-    for n, e in zip(names, emails):
-        user = GUser(n, e)
-        db.session.add(user)
-        db.session.commit()
+    db.session.commit()
 
 
 def prepopulate():
