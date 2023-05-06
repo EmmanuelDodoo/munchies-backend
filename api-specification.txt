@@ -8,7 +8,7 @@ GET /api/
     Success Response
         <HTTP Status code 200>
         {
-            "dining halls": [
+            "dining_halls": [
                 {
                    "id": <int>,
                    "name": <string>,

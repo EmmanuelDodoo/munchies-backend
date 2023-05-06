@@ -1,4 +1,4 @@
-from db import db, DiningHall, Review, Token, User, Asset
+from db import db, DiningHall, Review, Token, User, Asset, GUser
 import google_auth
 from flask import Flask, request, redirect
 import json
