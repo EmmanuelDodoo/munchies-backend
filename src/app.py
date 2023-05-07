@@ -134,7 +134,7 @@ def home():
     """ Home route. Returns all data on dining halls """
 
     halls = [h.simple_serialize() for h in DiningHall.query.all()]
-    return success_response({"dining_halls": halls})
+    return success_response({"restaurants": halls})
 
 
 @app.route("/api/hall/<int:hid>/")
