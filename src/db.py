@@ -43,13 +43,15 @@ class DiningHall(db.Model):
 
         return round(self.rating_sum/self.rating_number, 1)
 
-    def __init__(self, name: str, image: str):
+    def __init__(self, name: str, image: str, default_ratining):
         """
             Create a new dining hall entry with `name`, and `image` url
         """
 
         self.name = name
         self.image = image
+        self.rating_sum = default_ratining
+        self.rating_number = 1
 
     def add_rating(self, rating):
         """
@@ -67,11 +69,12 @@ class DiningHall(db.Model):
         """
 
         return {
-            "id": self.id,
+            "hall_id": self.id,
             "name": self.name,
             "image": self.image,
             "rating": self.get_rating(),
-            "review_number": len(self.reviews)
+            "reviews": []
+
         }
 
     def full_serialize(self):
@@ -80,11 +83,11 @@ class DiningHall(db.Model):
         """
 
         return {
-            "id": self.id,
+            "hall_id": self.id,
             "name": self.name,
             "image": self.image,
             "rating": self.get_rating(),
-            "reviews": [r.serialize() for r in self.reviews]
+            "reviews": [r.serialize() for r in Review.query.filter_by(hall_id=self.id)]
         }
 
 
@@ -125,7 +128,7 @@ class User(db.Model):
 
     def serialize(self):
         return {
-            "id": self.id,
+            "user_id": self.id,
             "name": self.name,
             "email": self.email
         }
@@ -239,6 +242,7 @@ class Review(db.Model):
     contents = db.Column(db.Text, nullable=False)
     with_image = db.Column(db.Boolean, nullable=False, default=False)
     image_url = db.Column(db.String, nullable=True)
+    rating = db.Column(db.Integer, nullable=False)
 
     def __init__(self, **kwargs):
         """
@@ -248,9 +252,10 @@ class Review(db.Model):
         self.hall_id = kwargs.get("hall_id")
         self.userid = kwargs.get("userid")
         self.contents = kwargs.get("contents")
-        self.date = kwargs.get("date")
+        self.date = int(kwargs.get("date"))
         self.with_image = kwargs.get("with_image")
         self.image_url = kwargs.get("image_url", "")
+        self.rating = kwargs.get("rating")
 
     def update_contents(self, new_contents):
         """
@@ -267,14 +272,15 @@ class Review(db.Model):
         """
 
         return {
-            "id": self.id,
+            "review_id": self.id,
             "hall_id": self.hall_id,
-            "userid": self.userid,
+            "user_id": self.userid,
             "username": User.query.filter_by(id=self.userid).first().serialize().get("name"),
             "date": self.date,
             "contents": self.contents,
             "with_image": self.with_image,
             "image_url": self.image_url,
+            "rating": self.rating
         }
 
 
@@ -328,7 +334,7 @@ class Token(db.Model):
         """
         return {
             "id": self.id,
-            "userid": self.userid,
+            "user_id": self.userid,
             "token": self.value,
             "created_at": self.created_at,
             "expires_at": self.expires_at
@@ -390,10 +396,10 @@ class Asset(db.Model):
                 f"Exception during image data processing. Exception is as follows;\n{e}")
             print("******************************************************************\n")
 
-    def __init__(self, image_data):
+    def __init__(self, image_data, extension=None):
         self.base_url = S3_BASE_URL
         self.salt = self.create_salt()
-        self.extension = self.get_extension(image_data)
+        self.extension = self.get_extension(image_data) if extension==None else extension
         img = self.process(image_data)
         self.width = img.width
         self.height = img.height

@@ -8,9 +8,9 @@ GET /api/
     Success Response
         <HTTP Status code 200>
         {
-            "dining_halls": [
+            "restaurants": [
                 {
-                   "id": <int>,
+                   "hall_id": <int>,
                    "name": <string>,
                    "rating": <number in range [0,5] inclusive in steps of 0.5>,
                    "image": <url to image>,
@@ -19,7 +19,7 @@ GET /api/
             ]
         }
 
-GET /api/hall/{id}/
+GET /api/hall/{hall id}/
     Returns data about a specific dining hall
 
     No request body needed
@@ -27,7 +27,7 @@ GET /api/hall/{id}/
     Success Response
         <HTTP Status code 200>
         {
-            "id": <int>,
+            "hall_id": <int>,
             "name" : <string>,
             "rating": <number in range [0,5] inclusive in steps of 0.5>,
             "image": <url to image>,
@@ -56,7 +56,7 @@ GET /api/hall/{hall id}/reviews/{review id}/
             "id": <int>
             "hall_id": <int>
             "username" : <string>
-            "userid": <int>
+            "user_id": <int>
             "date": <unix time>
             "contents": <string>
             "with_image": <boolean>
@@ -82,23 +82,26 @@ POST /api/hall/{hall id}/reviews/
     
     Request body
         {
-            "userid": <valid user id>
+            "user_id": <valid user id>
             "contents" : <string>
             "with_image" : <boolean>
+            "rating": <number in range [0,5] inclusive>
             "image_data" : <base64 encoded image> | <null>
         }
     
     Success Response 
         <HTTP Status code 201>
         {
-            "id": <int>
+            "review_id": <int>
             "hall_id": <int>
             "username" : <string>
-            "userid": <int>
+            "user_id": <int>
             "contents": <string>
             "date": <unix time>
             "with_image": <boolean>
             "image_url": <url to image> | <null>
+            "rating": <number in range [1,5] inclusive>
+
         }
 
     Failure Responses
@@ -133,7 +136,7 @@ DELETE /api/hall/{hall id}/reviews/{ review id}/
             "id": <int>
             "hall_id": <int>
             "username" : <string>
-            "userid": <int>
+            "user_id": <int>
             "contents": <string>
             "with_image": <boolean>
             "date": <unix time>
@@ -176,7 +179,7 @@ PATCH /api/hall/{hall id}/reviews/{review id}/
             "id": <int>
             "hall_id": <int>
             "username" : <string>
-            "userid": <int>
+            "user_id": <int>
             "date": <unix time>
             "contents": <string>
             "with_image": <boolean>
@@ -213,7 +216,7 @@ POST /api/hall/{hall id}/rate/
     
     Request body
         {
-            "userid" <int>
+            "user_id" <int>
             "rating": <number in range [0,5] inclusive>
         }
     
@@ -258,7 +261,7 @@ POST /api/login/
     Success Response
         <HTTP Status code 201>
         {
-            "userid": <int>
+            "user_id": <int>
             "username": <string>
             "email": <email>
             "tokenid": <int>
@@ -298,7 +301,7 @@ POST /api/signup/
     Success Response
         <HTTP Status code 201>
         {
-            "userid": <int>
+            "user_id": <int>
             "username": <string>
             "email": <email>
             "tokenid": <int>
@@ -331,7 +334,7 @@ POST /api/experimental/login/
     Success Response
         <HTTP Status code 201>
         {
-            "userid": <int>
+            "user_id": <int>
             "username": <string>
             "email": <email>
             "tokenid": <int>
@@ -357,3 +360,19 @@ POST /api/experimental/login/
         <HTTP Status code 403>
         "error":
             "Only Cornell accounts allowed"
+
+POST /api/upload
+    Attempt to upload an image
+    Requires a form in request with key 'file' and value being the raw image
+    Requires content type to be of form 'image/<image extension>'
+
+    Success Response
+        <HTTP Status code 201>
+        {
+            "url": url to the image created
+        }
+    
+    Failure Response
+        <HTTP Status code 400>
+        "error":
+            "Bad request" (Image not found or extension type)

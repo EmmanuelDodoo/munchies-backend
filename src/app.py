@@ -6,6 +6,8 @@ import re
 from datetime import datetime
 import os
 from flask_cors import CORS
+import random
+import base64
 
 app = Flask(__name__)
 CORS(app)
@@ -44,7 +46,7 @@ def prepopulate_halls():
                                           "amit-bhatia-libe.jpg", 4.0),
                                          ("Big Red Barn", "brbarn.jpg", 4.0),
                                          ("Bus Stop Bagels",
-                                          "bus-stop-bagels", 3.5),
+                                          "bus-stop-bagels.jpg", 3.5),
                                          ("Cafe Jennie", "cafe-jennie.webp", 4.0),
                                          ("Franny's Food Truck",
                                           "franny.webp", 4.0),
@@ -56,8 +58,50 @@ def prepopulate_halls():
                                          ]
 
     for hall in halls:
-        dHall = DiningHall(hall[0], f"{base_url}{hall[1]}")
+        dHall = DiningHall(hall[0], f"{base_url}{hall[1]}", hall[2])
         db.session.add(dHall)
+
+    db.session.commit()
+
+
+def prepopulate_users():
+    """ Adds 3 dummy users to database"""
+    lst = [("dummyuser1", "dummy1@cornell.edu", "dummy1here"),
+           ("dummyuser2", "dummy2@cornell.edu", "dummy2here"),
+           ("dummyuser3", "dummy3@cornell.edu", "dummy3here"),
+           ]
+
+    for data in lst:
+        user = User(data[0], data[1], data[2])
+        db.session.add(user)
+
+    db.session.commit()
+
+
+def prepopluate_reviews():
+    """ Add dummy reviews to some halls"""
+
+    rv_list = [
+        "It's Sunday here",
+        "The apples were yummy",
+        "The pizza is so good",
+        "I love the flat",
+        "Best tenders",
+        "Bring back the corn bread",
+        "I love the mint cookies",
+        "Someone spilled ice cream on me",
+        "Too much chicken masala",
+        "Can't have enough"
+    ]
+
+    for rv in rv_list:
+        hall_id = random.randint(1, 5)
+        user_id = random.randint(1, 3)
+        rating = random.randint(1, 5)
+        date = int(datetime.now().timestamp())
+        review = Review(hall_id=hall_id, userid=user_id,
+                        rating=rating, date=date, contents=rv, with_image=False)
+        db.session.add(review)
 
     db.session.commit()
 
@@ -66,6 +110,8 @@ def prepopulate():
     """ Prepopulates all tables with dummy data mainly for testing database"""
 
     prepopulate_halls()
+    prepopulate_users()
+    prepopluate_reviews()
 # ==============================================================================
 
 
@@ -77,11 +123,13 @@ with app.app_context():
 
 # ==============================Helpers=========================================
 
-def success_response(load, code=200):
+def success_response(load, code=200, header=None):
     """
         Return a success response with given load `load` and 
         code, `code`. Code defaults to 200
     """
+    if header:
+        return json.dumps(load), code, header
 
     return json.dumps(load), code
 
@@ -133,7 +181,7 @@ def verify_email(email: str):
 def home():
     """ Home route. Returns all data on dining halls """
 
-    halls = [h.simple_serialize() for h in DiningHall.query.all()]
+    halls = [h.full_serialize() for h in DiningHall.query.all()]
     return success_response({"restaurants": halls})
 
 
@@ -182,7 +230,7 @@ def google_login():
     db.session.commit()
 
     output = {
-        "userid": user.id,
+        "user_id": user.id,
         "username": user.name,
         "email": user.email,
         "tokenid": token.id,
@@ -228,10 +276,10 @@ def rate_hall(hall_id: int):
     if not req_body.get("rating") or not isinstance(req_body.get("rating"), int | float):
         return failure_response("Bad request body", 400)
 
-    if not req_body.get("userid") or not isinstance(req_body.get("userid"), int):
+    if not req_body.get("user_id") or not isinstance(req_body.get("user_id"), int):
         return failure_response("Bad request body", 400)
 
-    user: User = User.query.filter_by(id=req_body.get("userid")).first()
+    user: User = User.query.filter_by(id=req_body.get("user_id")).first()
     if not user:
         return failure_response("User not found", 404)
 
@@ -270,17 +318,19 @@ def create_review(hid: int):
 
     req_body: dict = json.loads(request.data)
 
-    if not req_body.get("userid") or not isinstance(req_body.get("userid"), int):
+    if not req_body.get("user_id") or not isinstance(req_body.get("user_id"), int):
         return failure_response("Bad request body", 400)
     if req_body.get("contents") == None or not isinstance(req_body.get("contents"), str):
         return failure_response("Bad request body", 400)
     if req_body.get("with_image") == None or not isinstance(req_body.get("with_image"), bool):
         return failure_response("Bad request body", 400)
+    if req_body.get("rating") == None or not isinstance(req_body.get("rating"), int):
+        return failure_response("Bad request body", 400)
     if req_body.get("with_image"):
         if not req_body.get("image_data") or not isinstance(req_body.get("image_data"), str):
             return failure_response("Bad request body", 400)
 
-    user: User = User.query.filter_by(id=req_body.get("userid")).first()
+    user: User = User.query.filter_by(id=req_body.get("user_id")).first()
     if not user:
         return failure_response("User not found", 404)
 
@@ -299,23 +349,25 @@ def create_review(hid: int):
         db.session.commit()
         review: Review = Review(
             hall_id=hid,
-            userid=req_body.get("userid"),
+            userid=req_body.get("user_id"),
             contents=req_body.get("contents"),
-            date=round(datetime.now().timestamp(), 1),
+            date=int(datetime.now().timestamp()),
             with_image=req_body.get("with_image"),
-            image_url=img.serialize().get("url")
+            image_url=img.serialize().get("url"),
+            rating=req_body.get("rating"),
         )
 
     else:
         review: Review = Review(
             hall_id=hid,
-            userid=req_body.get("userid"),
+            userid=req_body.get("user_id"),
             contents=req_body.get("contents"),
-            date=round(datetime.now().timestamp(), 1),
+            date=int(datetime.now().timestamp()),
             with_image=req_body.get("with_image"),
-            image_url=""
+            image_url="",
+            rating=req_body.get("rating"),
         )
-
+    user.rate_hall(hid, req_body.get("rating"))
     db.session.add(review)
     db.session.commit()
 
@@ -440,16 +492,14 @@ def login():
     db.session.commit()
 
     output = {
-        "userid": user.id,
+        "user_id": user.id,
         "username": user.name,
         "email": user.email,
-        "tokenid": token.id,
-        "session_token": token.value,
-        "created_at": token.created_at,
-        "expires_at": token.expires_at
+        # "created_at": token.created_at,
+        # "expires_at": token.expires_at
     }
 
-    return success_response(output, 201)
+    return success_response(output, 201, {"Authorization": f"Bearer {token.value}"})
 
 
 @app.route("/api/signup/", methods=["POST"])
@@ -486,16 +536,34 @@ def signup():
     db.session.commit()
 
     output = {
-        "userid": new_user.id,
+        "user_id": new_user.id,
         "username": new_user.name,
         "email": new_user.email,
-        "tokenid": token.id,
-        "session_token": token.value,
-        "created_at": token.created_at,
-        "expires_at": token.expires_at
+        # "tokenid": token.id,
+        # "session_token": token.value,
+        # "created_at": token.created_at,
+        # "expires_at": token.expires_at
     }
 
-    return success_response(output, 201)
+    return success_response(output, 201, {"Authorization": f"Bearer {token.value}"})
+
+
+@app.route("/api/upload/", methods=["POST"])
+def upload_image():
+    """ Upload an image to the data base"""
+
+    file = request.files.get("file")
+
+    if not file or not file.content_type:
+        return failure_response("Bad request", 400)
+
+    temp = file.stream.read()
+
+    enc = base64.b64encode(temp)
+    print(enc.decode())
+    img = Asset(enc.decode(), extension=file.content_type[6:])
+
+    return success_response(img.serialize(), 201)
 
 
 # ===================================================================================
